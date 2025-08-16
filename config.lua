@@ -8,7 +8,7 @@ Config.EnableCommandFallback = true
 Config.CommandName = 'assjob'
 
 -- Número mínimo de membros (além do iniciador) que tens de convidar por focus
-Config.RequiredInvites = 3  -- conforme pediste; podes mudar aqui
+Config.RequiredInvites = 1  -- conforme pediste; podes mudar aqui
 
 -- Tempo para aceitar convite (segundos)
 Config.InviteTimeout = 60
