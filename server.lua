@@ -21,8 +21,9 @@ local function isPolice(src)
   end
   return false
 end
+
+-- callback para o cliente perguntar se é polícia
 lib.callback.register('qbx:server:isPolice', function(source, serverId)
-  -- quando o cliente pergunta “sou polícia?”, devolvemos com base no serverId indicado.
   local sid = serverId or source
   return isPolice(sid)
 end)
@@ -63,6 +64,14 @@ local function createSquad(leader, tier)
   }
   PlayerSquad[leader] = id
   return id
+end
+
+local function sendLocationToSquad(squadId, spot)
+  local s = ActiveSquads[squadId]; if not s then return end
+  for memberSrc, _ in pairs(s.members) do
+    TriggerClientEvent('qb_assassination:client:receiveContractLocation', memberSrc, { tier = s.tier, coords = spot, squadId = squadId })
+    TriggerClientEvent('ox_lib:notify', memberSrc, { title = Config.NotifyTitle, description = 'Localização do VIP enviada no teu mapa.', type = 'inform' })
+  end
 end
 
 local function squadMemberCount(id)
@@ -107,24 +116,21 @@ RegisterNetEvent('qb_assassination:server:respondInvite', function(accept, squad
     s.members[src] = true
     PlayerSquad[src] = squadId
     for memberSrc, _ in pairs(s.members) do
-      notify(memberSrc, ('%s juntou-se ao grupo (%d/%d).'):format(GetPlayerName(src), squadMemberCount(squadId), 1 + Config.RequiredInvites), 'success')
+      local need = 1 + (Config.RequiredInvites or 0)
+      notify(memberSrc, ('%s juntou-se ao grupo (%d/%d).'):format(GetPlayerName(src), squadMemberCount(squadId), need), 'success')
     end
     -- Quando atinge o nº necessário, envia localização
-    if (squadMemberCount(squadId) >= (1 + Config.RequiredInvites)) then
+    if (squadMemberCount(squadId) >= (1 + (Config.RequiredInvites or 0))) then
       s.state = 'enroute'
       local spot = pick(Config.EncounterSpots)
       -- possivelmente dispara alerta de polícia ao começar (Tier 4/5)
       local tierCfg = Config.Tiers[s.tier]
-      if tierCfg and tierCfg.policeCallOnStart > 0 then
+      if tierCfg and tierCfg.policeCallOnStart and tierCfg.policeCallOnStart > 0 then
         if math.random() <= tierCfg.policeCallOnStart then
           TriggerEvent(Config.Dispatch.EventName, 'start', spot)
         end
       end
-      -- enviar spot a todos
-      for memberSrc, _ in pairs(s.members) do
-        TriggerClientEvent('qb_assassination:client:receiveContractLocation', memberSrc, { tier = s.tier, coords = spot, squadId = squadId })
-        notify(memberSrc, 'Localização do VIP enviada no teu mapa.', 'inform')
-      end
+      sendLocationToSquad(squadId, spot)
     end
   else
     notify(src, 'Recusaste o convite.', 'error')
@@ -151,7 +157,31 @@ lib.callback.register('qb_assassination:server:startJob', function(src, tier)
   end
 
   local squadId = createSquad(src, tier)
-  notify(src, ('Criaste um grupo para %s. Convida %d membros focando neles.'):format(Config.Tiers[tier].name, Config.RequiredInvites), 'inform')
+  local s = ActiveSquads[squadId]
+  local tierCfg = Config.Tiers[tier]
+
+  -- Se RequiredInvites <= 0, arranca logo e manda a localização
+  if (Config.RequiredInvites or 0) <= 0 then
+    s.state = 'enroute'
+    local spot = pick(Config.EncounterSpots)
+
+    if tierCfg and tierCfg.policeCallOnStart and tierCfg.policeCallOnStart > 0 then
+      if math.random() <= tierCfg.policeCallOnStart then
+        TriggerEvent(Config.Dispatch.EventName, 'start', spot)
+      end
+    end
+
+    sendLocationToSquad(squadId, spot)
+    notify(src, ('%s iniciado. Vai ao ponto no mapa.'):format(tierCfg.name), 'inform')
+  else
+    -- precisa de convites
+    local needed = Config.RequiredInvites
+    local msg = (needed == 1)
+      and ('Criaste um grupo para %s. Convida %d pessoa focando nela.'):format(tierCfg.name, needed)
+      or  ('Criaste um grupo para %s. Convida %d pessoas focando nelas.'):format(tierCfg.name, needed)
+    notify(src, msg, 'inform')
+  end
+
   return true, squadId
 end)
 

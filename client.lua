@@ -1,4 +1,6 @@
--- local QBCore = exports['qbx_core']:GetCoreObject()
+-- client.lua
+
+-- NADA de GetCoreObject no cliente
 local isInContract = false
 local mySquadId = nil
 local currentTier = nil
@@ -15,8 +17,6 @@ local function roll(p) return math.random() <= p end
 local function pick(t) return t[math.random(1, #t)] end
 
 -- Phone integration (opcional)
--- Se usares qb-phone/qbx_phone, mapeia a chamada do número para abrir o menu
--- Exemplo (ajusta ao teu phone):
 -- AddEventHandler('qbx_phone:client:callIncoming:'..Config.PhoneNumber, function()
 --   OpenContractMenu()
 -- end)
@@ -61,13 +61,22 @@ function StartTier(tier)
   isInContract = true
   currentTier = tier
   mySquadId = res
-  notify(('Job %s criado. Convida %d jogadores focando neles (ox_target).'):format(Config.Tiers[tier].name, Config.RequiredInvites), 'inform')
+
+  local invites = Config.RequiredInvites or 0
+  if invites <= 0 then
+    -- o servidor vai enviar a localização imediatamente
+    notify(('Job %s iniciado. A localização será marcada no mapa.'):format(Config.Tiers[tier].name), 'inform')
+  else
+    local msg = (invites == 1)
+      and ('Job %s criado. Convida %d pessoa focando nela (ox_target).'):format(Config.Tiers[tier].name, invites)
+      or  ('Job %s criado. Convida %d pessoas focando nelas (ox_target).'):format(Config.Tiers[tier].name, invites)
+    notify(msg, 'inform')
+  end
 end
 
 -- =======================
 -- CONVITES VIA FOCUS (ox_target)
 -- =======================
--- Adiciona uma opção de target sobre players para convidar enquanto estás em "forming"
 CreateThread(function()
   exports.ox_target:addGlobalPlayer({
     {
@@ -150,24 +159,21 @@ function SpawnEncounter(coords, tier)
   local cfg = Config.Tiers[tier]
   if not cfg then return end
 
-  -- cria relationship group para controlar comportamentos
+  -- relationship group
   local relHash = GetHashKey(Config.RelationshipGroup)
   AddRelationshipGroup(Config.RelationshipGroup)
 
-  -- criar VIP (modelo simples)
-  local vipModel = `ig_kenny` -- troca por outro se quiseres
+  -- VIP
+  local vipModel = `ig_kenny` -- altera se quiseres
   lib.requestModel(vipModel, 5000)
   vipPed = CreatePed(26, vipModel, coords.x, coords.y, coords.z, 0.0, true, true)
   SetEntityAsMissionEntity(vipPed, true, true)
   SetEntityInvincible(vipPed, false)
   SetPedAccuracy(vipPed, Config.PedAccuracy.vip)
   SetPedRelationshipGroupHash(vipPed, relHash)
+  GiveWeaponToPed(vipPed, pick(cfg.vipWeaponPool), 250, false, true)
 
-  -- arma do VIP
-  local w = pick(cfg.vipWeaponPool)
-  GiveWeaponToPed(vipPed, w, 250, false, true)
-
-  -- guards
+  -- Guards
   guardPeds = {}
   local guardCount = 0
   if cfg.guardCount.max > 0 then
@@ -186,30 +192,14 @@ function SpawnEncounter(coords, tier)
     table.insert(guardPeds, ped)
   end
 
-  -- guards não atacam polícia
-  CreateThread(function()
-    while vipPed and DoesEntityExist(vipPed) do
-      local players = GetActivePlayers()
-      for _, pid in ipairs(players) do
-        local sid = GetPlayerServerId(pid)
-        -- pede ao servidor se é polícia (mais barato seria cache mas mantemos simples)
-        -- Em vez de callback a cada tick, vamos apenas ignorar cops de forma aproximada:
-        -- Se quiseres 100% correto, cria uma NUI/estado partilhado de jobs.
-      end
-      Wait(2000)
-    end
-  end)
-
-  -- loop de comportamento (ataque a não-polícias que se aproximem)
+  -- loop de comportamento (atacar não-polícias quando se aproximam)
   CreateThread(function()
     while vipPed and DoesEntityExist(vipPed) do
       local p = PlayerPedId()
-      local pcoords = GetEntityCoords(p)
-      local dist = #(pcoords - coords)
+      local dist = #(GetEntityCoords(p) - coords)
       if dist <= Config.EngageDistance then
-        -- guards entram em alerta e atacam jogadores que NÃO são polícia
         local myServerId = GetPlayerServerId(PlayerId())
-        local isCop = lib.callback.await('qbx:server:isPolice', false, myServerId) -- criaremos callback leve abaixo
+        local isCop = lib.callback.await('qbx:server:isPolice', false, myServerId)
         if not isCop then
           for _, g in ipairs(guardPeds) do
             if DoesEntityExist(g) and not IsPedDeadOrDying(g, true) then
@@ -240,12 +230,6 @@ function SpawnEncounter(coords, tier)
   end)
 end
 
--- Callback simples para saber se és polícia (chamado no engage)
-lib.callback.register('qbx:server:isPolice', function(src, serverId)
-  -- devolve no server; stub no client (o real está no server)
-  return false
-end)
-
 -- =======================
 -- DUMPSTER E PAGAMENTO
 -- =======================
@@ -254,7 +238,7 @@ RegisterNetEvent('qb_assassination:client:assignDumpster', function(data)
   targetDumpster = data
 
   dumpsterBlip = AddBlipForCoord(data.coords.x, data.coords.y, data.coords.z)
-  SetBlipSprite(dumpsterBlip, 365) -- dumpster-ish
+  SetBlipSprite(dumpsterBlip, 365)
   SetBlipColour(dumpsterBlip, 2)
   SetBlipScale(dumpsterBlip, 0.9)
   BeginTextCommandSetBlipName('STRING')
@@ -262,7 +246,6 @@ RegisterNetEvent('qb_assassination:client:assignDumpster', function(data)
   EndTextCommandSetBlipName(dumpsterBlip)
 
   -- zona de target para recolher pagamento
-  local zoneName = ('assjob_dump_%d'):format(math.random(1000, 9999))
   exports.ox_target:addSphereZone({
     coords = vec3(data.coords.x, data.coords.y, data.coords.z),
     radius = 1.5,
@@ -290,7 +273,7 @@ RegisterNetEvent('qb_assassination:client:assignDumpster', function(data)
 end)
 
 -- =======================
--- BLIP POLÍCIA (server pode enviar coords)
+-- BLIP POLÍCIA
 -- =======================
 RegisterNetEvent('qb_assassination:client:blipPolice', function(coords)
   local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
@@ -322,16 +305,10 @@ function CleanupEncounter(keepContractFlag)
   if encounterBlip then RemoveBlip(encounterBlip) encounterBlip = nil end
   if dumpsterBlip then RemoveBlip(dumpsterBlip) dumpsterBlip = nil end
 
-  if not keepContractFlag then
-    isInContract = false
-    mySquadId = nil
-    currentTier = nil
-  else
-    -- pagamento concluído: termina totalmente
-    isInContract = false
-    mySquadId = nil
-    currentTier = nil
-  end
+  -- termina sempre o contrato localmente
+  isInContract = false
+  mySquadId = nil
+  currentTier = nil
 end
 
 RegisterNetEvent('qb_assassination:client:abort', function()
