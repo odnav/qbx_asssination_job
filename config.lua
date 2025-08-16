@@ -18,11 +18,11 @@ Config.SquadCooldown  = 10 * 60       -- 10 minutos por grupo
 
 -- ==== Locais de recolha (dumpsters) ====
 Config.Dumpsters = {
-  { coords = vec3(45.87,   -1748.22, 29.61), heading = 50.0 },
-  { coords = vec3(207.34,  -1466.51, 29.15), heading = 130.0 },
-  { coords = vec3(-312.64, -1531.23, 27.54), heading = 230.0 },
-  { coords = vec3(-582.13, -1626.41, 27.01), heading = 140.0 },
-  { coords = vec3(877.92,  -2165.67, 32.29), heading = 175.0 },
+-- { coords = vec3(45.87,   -1748.22, 29.61), heading = 50.0 },
+--  { coords = vec3(207.34,  -1466.51, 29.15), heading = 130.0 },
+--  { coords = vec3(-312.64, -1531.23, 27.54), heading = 230.0 },
+--  { coords = vec3(-582.13, -1626.41, 27.01), heading = 140.0 },
+  { coords = vec3(885.18,  -2172.73, 30.52), heading = 355.9 },
 }
 -- (Opcional, caso queiras validar modelos no mundo)
 Config.DumpsterModels = {
