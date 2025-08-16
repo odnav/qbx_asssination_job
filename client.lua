@@ -1,15 +1,19 @@
--- client.lua (assassination job) — versão com COMANDOS
+-- client.lua (assassination job) — comandos + convite por focus
 
+-- =======================
 -- Estado local
+-- =======================
 local isInContract = false
 local mySquadId = nil
 local currentTier = nil
 local vipPed, guardPeds = nil, {}
 local encounterBlip = nil
 local dumpsterBlip, dumpsterZoneId = nil, nil
-local lastInvite = nil  -- guarda último convite recebido para comandos /assaccept /assdecline
+local lastInvite = nil  -- para /assaccept /assdecline
 
--- ==== Utils ====
+-- =======================
+-- Utils
+-- =======================
 local function notify(msg, typ)
   lib.notify({ title = Config.NotifyTitle or 'Contratante', description = msg, type = typ or 'inform' })
 end
@@ -17,16 +21,6 @@ end
 local function pick(t)
   return t[math.random(1, #t)]
 end
-
-
--- Helper: obter o serverId a partir do ped de um jogador
-local function getServerIdFromEntity(ent)
-  if not ent or ent == 0 then return nil end
-  local idx = NetworkGetPlayerIndexFromPed(ent)
-  if not idx or idx == -1 then return nil end
-  return GetPlayerServerId(idx)
-end
-
 
 -- Fallback de modelos seguro
 local function toHash(model) return type(model) == 'string' and GetHashKey(model) or model end
@@ -58,8 +52,16 @@ local function isPoliceCached(serverId)
   return val
 end
 
+-- Helper: obter o serverId a partir do ped de um jogador (focus)
+local function getServerIdFromEntity(ent)
+  if not ent or ent == 0 then return nil end
+  local idx = NetworkGetPlayerIndexFromPed(ent)
+  if not idx or idx == -1 then return nil end
+  return GetPlayerServerId(idx)
+end
+
 -- =======================
--- MENU DE TIERS
+-- Menu de tiers
 -- =======================
 function OpenContractMenu()
   if isInContract then
@@ -102,27 +104,24 @@ function StartTier(tier)
     notify(('Job %s iniciado. A localização será marcada no mapa.'):format(Config.Tiers[tier].name), 'inform')
   else
     local msg = (invites == 1)
-      and ('Job %s criado. Convida %d pessoa com /assinvite <id>.'):format(Config.Tiers[tier].name, invites)
-      or  ('Job %s criado. Convida %d pessoas com /assinvite <id>.'):format(Config.Tiers[tier].name, invites)
+      and ('Job %s criado. Convida %d pessoa com /assinvite <id> ou por focus.'):format(Config.Tiers[tier].name, invites)
+      or  ('Job %s criado. Convida %d pessoas com /assinvite <id> ou por focus.'):format(Config.Tiers[tier].name, invites)
     notify(msg, 'inform')
   end
 end
 
 -- =======================
--- COMANDOS
+-- Comandos
 -- =======================
--- /assjob -> abre menu
 RegisterCommand('assjob', function()
   OpenContractMenu()
 end, false)
 
--- /asstier <1-5> -> arranca diretamente um tier
 RegisterCommand('asstier', function(_, args)
   local tier = tonumber(args[1])
   StartTier(tier)
 end, false)
 
--- /assinvite <serverId> -> envia convite
 RegisterCommand('assinvite', function(_, args)
   if not isInContract or not mySquadId then
     notify('Não tens grupo para convidar.', 'error'); return
@@ -139,7 +138,6 @@ RegisterCommand('assinvite', function(_, args)
   else notify(msg or 'Falha ao enviar convite.', 'error') end
 end, false)
 
--- /assaccept / /assdecline -> responde ao último convite recebido
 RegisterCommand('assaccept', function()
   if not lastInvite or GetGameTimer() > lastInvite.expire then
     notify('Nenhum convite pendente.', 'error'); return
@@ -156,21 +154,33 @@ RegisterCommand('assdecline', function()
   lastInvite = nil
 end, false)
 
--- /assstatus -> mostra estado atual
 RegisterCommand('assstatus', function()
   local txt = ('Estado: %s | Tier: %s | Squad: %s')
     :format(isInContract and 'ATIVO' or 'livre', tostring(currentTier or '-'), tostring(mySquadId or '-'))
   notify(txt, 'inform'); print('[assstatus] '..txt)
 end, false)
 
--- /assleave -> já existia
 RegisterCommand('assleave', function()
   if mySquadId then TriggerServerEvent('qb_assassination:server:leaveSquad') end
   CleanupEncounter()
 end, false)
--- Convite por focus (ox_target) — coexistente com os comandos
+
+-- Dicas no chat
 CreateThread(function()
-  if not (Config.EnableFocusInvite and pcall(function() return exports.ox_target end)) then
+  TriggerEvent('chat:addSuggestion', '/assjob', 'Abrir o menu de contratos.')
+  TriggerEvent('chat:addSuggestion', '/asstier', 'Começar um contrato diretamente pelo tier.', { { name='tier', help='1-5' } })
+  TriggerEvent('chat:addSuggestion', '/assinvite', 'Convidar jogador para o contrato.', { { name='serverId', help='ID do jogador (F9/scoreboard)' } })
+  TriggerEvent('chat:addSuggestion', '/assaccept', 'Aceitar o último convite recebido.')
+  TriggerEvent('chat:addSuggestion', '/assdecline', 'Recusar o último convite recebido.')
+  TriggerEvent('chat:addSuggestion', '/assstatus', 'Mostrar estado atual do contrato.')
+  TriggerEvent('chat:addSuggestion', '/assleave', 'Sair do grupo/contrato e limpar local.')
+end)
+
+-- =======================
+-- Convite por focus (ox_target)
+-- =======================
+CreateThread(function()
+  if not (Config.EnableFocusInvite ~= false and pcall(function() return exports.ox_target end)) then
     return
   end
 
@@ -184,12 +194,10 @@ CreateThread(function()
       onSelect = function(data)
         local target = getServerIdFromEntity(data.entity)
         if not target then
-          notify('Não consegui identificar o jogador (aproxima-te mais).', 'error')
-          return
+          notify('Não consegui identificar o jogador (aproxima-te mais).', 'error'); return
         end
         if target == GetPlayerServerId(PlayerId()) then
-          notify('Não te podes convidar a ti próprio.', 'error')
-          return
+          notify('Não te podes convidar a ti próprio.', 'error'); return
         end
 
         local ok, msg = lib.callback.await('qb_assassination:server:invite', 5000, target)
@@ -203,21 +211,8 @@ CreateThread(function()
   })
 end)
 
-
-
--- Sugestões no chat
-CreateThread(function()
-  TriggerEvent('chat:addSuggestion', '/assjob', 'Abrir o menu de contratos.')
-  TriggerEvent('chat:addSuggestion', '/asstier', 'Começar um contrato diretamente pelo tier.', { { name='tier', help='1-5' } })
-  TriggerEvent('chat:addSuggestion', '/assinvite', 'Convidar jogador para o contrato.', { { name='serverId', help='ID do jogador (F9 / scoreboard)' } })
-  TriggerEvent('chat:addSuggestion', '/assaccept', 'Aceitar o último convite recebido.')
-  TriggerEvent('chat:addSuggestion', '/assdecline', 'Recusar o último convite recebido.')
-  TriggerEvent('chat:addSuggestion', '/assstatus', 'Mostrar estado atual do contrato.')
-  TriggerEvent('chat:addSuggestion', '/assleave', 'Sair do grupo/contrato e limpar local.')
-end)
-
 -- =======================
--- RECEÇÃO DE CONVITE (popup + guarda para comandos)
+-- Receção de convite
 -- =======================
 RegisterNetEvent('qb_assassination:client:invitePrompt', function(payload)
   lastInvite = { squadId = payload.squadId, expire = GetGameTimer() + (payload.timeout or 60) * 1000 }
@@ -245,7 +240,7 @@ RegisterNetEvent('qb_assassination:client:invitePrompt', function(payload)
 end)
 
 -- =======================
--- RECEBE LOCALIZAÇÃO DO VIP
+-- Recebe localização do VIP
 -- =======================
 RegisterNetEvent('qb_assassination:client:receiveContractLocation', function(data)
   mySquadId = data.squadId
@@ -259,7 +254,7 @@ RegisterNetEvent('qb_assassination:client:receiveContractLocation', function(dat
   -- Spawn quando te aproximas
   CreateThread(function()
     while isInContract and mySquadId do
-      local p = cache.ped or PlayerPedId()
+      local p = cache and cache.ped or PlayerPedId()
       local dist = #(GetEntityCoords(p) - data.coords)
       if dist <= (Config.SpawnDistance or 150.0) and not vipPed then
         SpawnEncounter(data.coords, currentTier)
@@ -271,7 +266,7 @@ RegisterNetEvent('qb_assassination:client:receiveContractLocation', function(dat
 end)
 
 -- =======================
--- SPAWN DE VIP + GUARDS
+-- Spawn de VIP + guards
 -- =======================
 function SpawnEncounter(coords, tier)
   local cfg = Config.Tiers[tier]; if not cfg then return end
@@ -332,10 +327,8 @@ function SpawnEncounter(coords, tier)
           local dist = #(GetEntityCoords(ped) - coords)
           if dist <= engageDist then
             local sid = GetPlayerServerId(pid)
-            if not isPoliceCached(sid) then
-              if dist < bestDist then
-                bestDist, targetPed = dist, ped
-              end
+            if not isPoliceCached(sid) and dist < bestDist then
+              bestDist, targetPed = dist, ped
             end
           end
         end
@@ -370,7 +363,7 @@ function SpawnEncounter(coords, tier)
 end
 
 -- =======================
--- DUMPSTER E PAGAMENTO
+-- Dumpster e pagamento
 -- =======================
 RegisterNetEvent('qb_assassination:client:assignDumpster', function(data)
   if dumpsterBlip then RemoveBlip(dumpsterBlip) dumpsterBlip = nil end
@@ -380,7 +373,6 @@ RegisterNetEvent('qb_assassination:client:assignDumpster', function(data)
   SetBlipSprite(dumpsterBlip, 365); SetBlipColour(dumpsterBlip, 2); SetBlipScale(dumpsterBlip, 0.9)
   BeginTextCommandSetBlipName('STRING'); AddTextComponentString('Pagamento'); EndTextCommandSetBlipName(dumpsterBlip)
 
-  -- zona para recolher pagamento
   dumpsterZoneId = exports.ox_target:addSphereZone({
     coords = vec3(data.coords.x, data.coords.y, data.coords.z),
     radius = 1.5,
@@ -405,7 +397,7 @@ RegisterNetEvent('qb_assassination:client:assignDumpster', function(data)
 end)
 
 -- =======================
--- BLIP POLÍCIA
+-- Blip polícia
 -- =======================
 RegisterNetEvent('qb_assassination:client:blipPolice', function(coords)
   local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
@@ -416,7 +408,7 @@ RegisterNetEvent('qb_assassination:client:blipPolice', function(coords)
 end)
 
 -- =======================
--- LIMPEZA
+-- Limpeza
 -- =======================
 function CleanupEncounter()
   if vipPed and DoesEntityExist(vipPed) then DeletePed(vipPed) end
