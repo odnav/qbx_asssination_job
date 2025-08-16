@@ -18,6 +18,16 @@ local function pick(t)
   return t[math.random(1, #t)]
 end
 
+
+-- Helper: obter o serverId a partir do ped de um jogador
+local function getServerIdFromEntity(ent)
+  if not ent or ent == 0 then return nil end
+  local idx = NetworkGetPlayerIndexFromPed(ent)
+  if not idx or idx == -1 then return nil end
+  return GetPlayerServerId(idx)
+end
+
+
 -- Fallback de modelos seguro
 local function toHash(model) return type(model) == 'string' and GetHashKey(model) or model end
 local function loadModelOrFallback(primary, fallback)
@@ -158,6 +168,42 @@ RegisterCommand('assleave', function()
   if mySquadId then TriggerServerEvent('qb_assassination:server:leaveSquad') end
   CleanupEncounter()
 end, false)
+-- Convite por focus (ox_target) — coexistente com os comandos
+CreateThread(function()
+  if not (Config.EnableFocusInvite and pcall(function() return exports.ox_target end)) then
+    return
+  end
+
+  exports.ox_target:addGlobalPlayer({
+    {
+      icon  = 'fa-solid fa-user-plus',
+      label = Config.FocusInviteLabel or 'Convidar para o contrato',
+      canInteract = function(entity)
+        return isInContract and mySquadId ~= nil and entity ~= 0
+      end,
+      onSelect = function(data)
+        local target = getServerIdFromEntity(data.entity)
+        if not target then
+          notify('Não consegui identificar o jogador (aproxima-te mais).', 'error')
+          return
+        end
+        if target == GetPlayerServerId(PlayerId()) then
+          notify('Não te podes convidar a ti próprio.', 'error')
+          return
+        end
+
+        local ok, msg = lib.callback.await('qb_assassination:server:invite', 5000, target)
+        if ok then
+          notify(('Convite enviado para ID %d.'):format(target), 'success')
+        else
+          notify(msg or 'Falha ao enviar convite.', 'error')
+        end
+      end
+    }
+  })
+end)
+
+
 
 -- Sugestões no chat
 CreateThread(function()
