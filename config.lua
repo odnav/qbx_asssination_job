@@ -145,7 +145,7 @@ Config.EncounterSpotsByTier = {
     { coords = vec3(877.92,  -2165.67, 32.29), heading = 180.0 },
   },
   [5] = {
-    { coords = vec3(1903.03, 4927.90, 47.89), heading = 157.4 },
+    { coords = vec3(1902.03, 4917.88, 48.73), heading = 161.1 },
     --{ coords = vec3(45.87,   -1748.22, 29.61), heading =  50.0 },
     --{ coords = vec3(207.34,  -1466.51, 29.15), heading = 130.0 },
   },
