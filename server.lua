@@ -1,4 +1,18 @@
-local QBCore = exports['qbx_core']:GetCoreObject()
+local QBCore
+do
+  local ok, obj = pcall(function() return exports['qbx_core']:GetCoreObject() end)
+  if ok and obj then
+    QBCore = obj
+  else
+    local ok2, obj2 = pcall(function() return exports['qb-core']:GetCoreObject() end)
+    if ok2 and obj2 then
+      QBCore = obj2
+    else
+      print('^1[assassination] ERRO: não encontrei qbx_core nem qb-core. Verifica o nome da pasta e a ordem de ensure.^7')
+      return  -- aborta o ficheiro para evitar mais erros
+    end
+  end
+end
 lib.locale()
 
 -- Estado de squads/instâncias
