@@ -1,13 +1,15 @@
+-- fxmanifest.lua
+
 fx_version 'cerulean'
 game 'gta5'
-
 lua54 'yes'
 
 name 'qb_assassination_job'
 author 'odnavpt + ChatGPT'
-description 'Assassination contract job com tiers, convites por focus e pagamento via dumpster.'
-version '1.0.0'
+description 'Assassination contract (tiers, convites via ox_target, pagamento em dumpster).'
+version '1.1.0'
 
+-- OX Lib tem de carregar antes de config/client/server
 shared_scripts {
   '@ox_lib/init.lua',
   'config.lua'
@@ -18,13 +20,12 @@ client_scripts {
 }
 
 server_scripts {
-  '@oxmysql/lib/MySQL.lua',
+  '@oxmysql/lib/MySQL.lua', -- opcional; remove se não precisares
   'server.lua'
 }
 
+-- Dependências diretas usadas no client
 dependencies {
-  'qbx_core',
   'ox_lib',
   'ox_target'
-  -- opcional: 'qbx_phone' ou 'qb-phone'
 }
