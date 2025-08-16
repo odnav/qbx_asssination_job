@@ -9,7 +9,7 @@ Config.CommandName = 'assjob'
 
 -- ==== Regras de grupo/convites ====
 -- 0 = arranca logo; 1 = pede 1 convite; >1 = pede X convites
-Config.RequiredInvites = 0
+Config.RequiredInvites = 1
 Config.InviteTimeout = 60             -- segundos para aceitar convite
 
 -- ==== Cooldowns ====
@@ -18,11 +18,11 @@ Config.SquadCooldown  = 10 * 60       -- 10 minutos por grupo
 
 -- ==== Locais de recolha (dumpsters) ====
 Config.Dumpsters = {
--- { coords = vec3(45.87,   -1748.22, 29.61), heading = 50.0 },
---  { coords = vec3(207.34,  -1466.51, 29.15), heading = 130.0 },
---  { coords = vec3(-312.64, -1531.23, 27.54), heading = 230.0 },
+  { coords = vec3(-1566.14, -427.58, 36.98), heading = 153.0 },
+  { coords = vec3(-1821.20, 803.16, 137.49), heading = 129.1 },
+  { coords = vec3(1723.59, 3698.22, 33.47), heading = 286.2 },
 --  { coords = vec3(-582.13, -1626.41, 27.01), heading = 140.0 },
-  { coords = vec3(885.18,  -2172.73, 30.52), heading = 355.9 },
+  { coords = vec3(885.34, -2171.80, 29.52), heading = 350.0 },
 }
 -- (Opcional, caso queiras validar modelos no mundo)
 Config.DumpsterModels = {
