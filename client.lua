@@ -1,4 +1,4 @@
-local QBCore = exports['qbx_core']:GetCoreObject()
+-- local QBCore = exports['qbx_core']:GetCoreObject()
 local isInContract = false
 local mySquadId = nil
 local currentTier = nil

@@ -21,6 +21,11 @@ local function isPolice(src)
   end
   return false
 end
+lib.callback.register('qbx:server:isPolice', function(source, serverId)
+  -- quando o cliente pergunta “sou polícia?”, devolvemos com base no serverId indicado.
+  local sid = serverId or source
+  return isPolice(sid)
+end)
 
 local function notify(src, msg, typ)
   TriggerClientEvent('ox_lib:notify', src, { title = Config.NotifyTitle, description = msg, type = typ or 'inform' })
