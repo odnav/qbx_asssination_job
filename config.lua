@@ -9,7 +9,7 @@ Config.CommandName = 'assjob'
 
 -- ==== Regras de grupo/convites ====
 -- 0 = arranca logo; 1 = pede 1 convite; >1 = pede X convites
-Config.RequiredInvites = 1
+Config.RequiredInvites = 0
 Config.InviteTimeout = 60             -- segundos para aceitar convite
 
 -- ==== Cooldowns ====
